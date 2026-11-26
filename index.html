@@ -1,0 +1,2326 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2026法金盛會 // 尾牙藝人介紹 戰艦 HUD 產生器</title>
+  <style>
+    /* =========================================================================
+       1. 全域字體與深色影視後期介面變數（零外部 CDN 相依，確保即時載入）
+       ========================================================================= */
+    :root {
+      --font-sans: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif: "Songti TC", "Noto Serif TC", "PMingLiU", Georgia, serif;
+      --font-display: "Orbitron", "DIN Alternate", "Bahnschrift", "Arial Narrow", "Segoe UI", sans-serif;
+      --font-mono: "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", monospace;
+
+      --ui-bg: #060911;
+      --ui-panel: #0d1322;
+      --ui-card: #111a2e;
+      --ui-border: rgba(148, 163, 184, 0.16);
+      --ui-text: #f1f5f9;
+      --ui-muted: #94a3b8;
+
+      --gold-light: #fff6c2;
+      --gold-mid: #f5c84c;
+      --gold-dark: #b8860b;
+      --cyan-glow: #38bdf8;
+      --np-scale: 0.75;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background-color: var(--ui-bg);
+      color: var(--ui-text);
+      font-family: var(--font-sans);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* 自訂深色捲軸 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #080c16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #253452;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3a517d;
+    }
+
+    /* =========================================================================
+       2. 頂部工具列與雙欄工作區佈局
+       ========================================================================= */
+    #top-header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 20px;
+      background: rgba(8, 12, 22, 0.94);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+      backdrop-filter: blur(10px);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #fff3b0, #f5c84c, #38bdf8);
+      box-shadow: 0 0 12px rgba(245, 200, 76, 0.85);
+      flex-shrink: 0;
+    }
+
+    .header-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      color: #ffffff;
+    }
+
+    .header-sub {
+      margin: 2px 0 0 0;
+      font-size: 11px;
+      color: var(--ui-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #workspace {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      max-width: 1720px;
+      margin: 0 auto;
+      padding: 16px 20px 24px;
+      width: 100%;
+    }
+
+    @media (min-width: 1024px) {
+      #workspace {
+        flex-direction: row;
+        align-items: flex-start;
+      }
+    }
+
+    #stage-column {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #control-panel {
+      width: 100%;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    @media (min-width: 1024px) {
+      #control-panel {
+        width: 370px;
+        max-height: calc(100vh - 90px);
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+    }
+
+    /* =========================================================================
+       3. 控制面板通用元件樣式
+       ========================================================================= */
+    .panel-card {
+      background: rgba(17, 26, 46, 0.88);
+      border: 1px solid var(--ui-border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      color: #fde68a;
+    }
+
+    .card-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #64748b;
+      letter-spacing: 0.08em;
+    }
+
+    .field-label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ui-muted);
+    }
+
+    .panel-input {
+      width: 100%;
+      background: #070b14;
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 8px;
+      padding: 7px 10px;
+      color: #f8fafc;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 700;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .panel-input:focus {
+      outline: none;
+      border-color: var(--gold-mid);
+      box-shadow: 0 0 0 2px rgba(245, 200, 76, 0.22);
+    }
+
+    .panel-input:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .panel-input.mono {
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .btn:hover {
+      border-color: rgba(245, 200, 76, 0.65);
+      background: #17233d;
+      color: #ffffff;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-sm {
+      padding: 6px 8px;
+      font-size: 11px;
+    }
+
+    .btn-seg.active {
+      background: rgba(245, 200, 76, 0.18);
+      border-color: var(--gold-mid);
+      color: #fff6c2;
+      box-shadow: 0 0 12px rgba(245, 200, 76, 0.2);
+    }
+
+    .btn-primary {
+      border: none;
+      background: linear-gradient(90deg, #fde047 0%, #f5c84c 52%, #38bdf8 100%);
+      color: #060911;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      box-shadow: 0 6px 20px rgba(245, 200, 76, 0.24);
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.08);
+      color: #060911;
+    }
+
+    .btn-danger {
+      border-color: rgba(244, 63, 94, 0.4);
+      background: rgba(136, 19, 55, 0.3);
+      color: #fda4af;
+    }
+
+    .btn-danger:hover {
+      border-color: rgba(244, 63, 94, 0.8);
+      background: rgba(136, 19, 55, 0.55);
+    }
+
+    .btn-dashed {
+      border-style: dashed;
+      border-color: rgba(148, 163, 184, 0.4);
+      background: rgba(15, 23, 42, 0.65);
+      width: 100%;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      background: rgba(7, 11, 20, 0.65);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .toggle-sub {
+      font-size: 10px;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+
+    .toggle-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #f5c84c;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .range-slider {
+      width: 100%;
+      height: 6px;
+      accent-color: #f5c84c;
+      cursor: pointer;
+    }
+
+    .scale-readout {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: #fde047;
+      background: rgba(245, 200, 76, 0.14);
+      border: 1px solid rgba(245, 200, 76, 0.35);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .tip-box {
+      margin: 0;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(245, 200, 76, 0.25);
+      background: rgba(245, 200, 76, 0.08);
+      font-size: 10.5px;
+      line-height: 1.5;
+      color: #fef08a;
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: #070b14;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: #f8fafc;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* 畫布下方工具列 */
+    #stage-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      background: rgba(17, 26, 46, 0.88);
+      border: 1px solid var(--ui-border);
+      border-radius: 12px;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .file-status {
+      font-size: 12px;
+      color: #cbd5e1;
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dur-badge {
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: #1e293b;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #fde047;
+    }
+
+    /* =========================================================================
+       4. 16:9 互動影片畫布容器（Container Query 確保 HUD 永遠等比縮放）
+       ========================================================================= */
+    #stage-container {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 16 / 9;
+      background-color: #04070e;
+      border-radius: 12px;
+      overflow: hidden;
+      container-type: inline-size;
+      container-name: hud;
+      user-select: none;
+      box-shadow: 0 26px 65px rgba(0, 0, 0, 0.82), 0 0 0 1px rgba(148, 163, 184, 0.16);
+    }
+
+    /* 背景輸出模式 */
+    #stage-container.bg-black {
+      background-color: #000000 !important;
+    }
+    #stage-container.bg-green {
+      background-color: #00ff00 !important;
+    }
+    #stage-container.bg-blue {
+      background-color: #0000ff !important;
+    }
+    #stage-container.bg-black #media-layer,
+    #stage-container.bg-black #placeholder-layer,
+    #stage-container.bg-green #media-layer,
+    #stage-container.bg-green #placeholder-layer,
+    #stage-container.bg-blue #media-layer,
+    #stage-container.bg-blue #placeholder-layer {
+      display: none !important;
+    }
+
+    /* 拖曳檔案提示 */
+    #stage-container.drag-over::after {
+      content: '放開滑鼠以匯入藝人介紹影片或圖片';
+      position: absolute;
+      inset: 0;
+      z-index: 80;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(6, 10, 20, 0.86);
+      border: 3px dashed var(--gold-mid);
+      color: #ffffff;
+      font-size: 2.1cqw;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      backdrop-filter: blur(4px);
+    }
+
+    /* 媒體層與電影感微調色濾鏡 */
+    #media-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: #04070e;
+      overflow: hidden;
+    }
+
+    #preview-video,
+    #preview-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+      transition: filter 0.3s ease;
+    }
+
+    #stage-container.cinematic-on #preview-video,
+    #stage-container.cinematic-on #preview-image {
+      filter: contrast(1.06) saturate(0.96) brightness(0.98);
+    }
+
+    #stage-container.cinematic-on::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 58%, rgba(4, 9, 20, 0.5) 100%);
+    }
+
+    /* 預設科技感網格佔位畫面（讓 HUD 立即清晰可見） */
+    #placeholder-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      text-align: center;
+      padding: 6%;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(30, 58, 138, 0.24) 0%, rgba(8, 14, 28, 0.9) 55%, #04070e 100%),
+        repeating-linear-gradient(0deg, rgba(56, 189, 248, 0.045) 0px, rgba(56, 189, 248, 0.045) 1px, transparent 1px, transparent 36px),
+        repeating-linear-gradient(90deg, rgba(56, 189, 248, 0.045) 0px, rgba(56, 189, 248, 0.045) 1px, transparent 1px, transparent 36px);
+    }
+
+    .ph-pill {
+      padding: 0.45cqw 1.2cqw;
+      border-radius: 999px;
+      border: 1px solid rgba(245, 200, 76, 0.5);
+      background: rgba(245, 200, 76, 0.1);
+      color: var(--gold-light);
+      font-family: var(--font-mono);
+      font-size: 0.92cqw;
+      letter-spacing: 0.18em;
+      margin-bottom: 1cqw;
+    }
+
+    .ph-title {
+      font-size: 1.9cqw;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      color: #ffffff;
+      margin-bottom: 0.5cqw;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+    }
+
+    .ph-sub {
+      font-size: 1.05cqw;
+      color: rgba(148, 163, 184, 0.9);
+      letter-spacing: 0.06em;
+    }
+
+    /* =========================================================================
+       5. 純淨錄製模式（隱藏所有 UI、純黑背景、16:9 置中）
+       ========================================================================= */
+    body.pure-recording {
+      background-color: #000000 !important;
+      overflow: hidden !important;
+      cursor: none !important;
+    }
+
+    body.pure-recording #top-header,
+    body.pure-recording #control-panel,
+    body.pure-recording #stage-toolbar {
+      display: none !important;
+    }
+
+    body.pure-recording #workspace {
+      padding: 0 !important;
+      margin: 0 !important;
+      max-width: none !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background-color: #000000 !important;
+    }
+
+    body.pure-recording #stage-column {
+      padding: 0 !important;
+      margin: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    body.pure-recording #stage-container {
+      width: min(100vw, calc(100vh * 16 / 9)) !important;
+      height: min(100vh, calc(100vw * 9 / 16)) !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    #recording-hint {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 120;
+      padding: 10px 22px;
+      border-radius: 999px;
+      background: rgba(8, 13, 24, 0.92);
+      border: 1px solid rgba(245, 200, 76, 0.6);
+      color: #fff3b0;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.45s ease;
+    }
+
+    #recording-hint.visible {
+      opacity: 1;
+    }
+
+    /* 非阻斷式 Toast 訊息 */
+    #toast-msg {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      z-index: 110;
+      padding: 9px 18px;
+      border-radius: 10px;
+      border: 1px solid rgba(245, 200, 76, 0.45);
+      background: rgba(11, 18, 34, 0.95);
+      color: #fef3c7;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.7);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    #toast-msg.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* =========================================================================
+       6. 外層戰艦金屬裝甲邊框與四角發光寶石
+       ========================================================================= */
+    #hud-bezel-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    .bezel-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .side-led-strip {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 0.45cqw;
+      z-index: 18;
+      pointer-events: none;
+    }
+    .side-led-strip.left { left: 0.85%; }
+    .side-led-strip.right { right: 0.85%; }
+
+    .led-seg {
+      width: 0.28cqw;
+      height: 1.35cqw;
+      border-radius: 0.1cqw;
+      background: rgba(56, 189, 248, 0.65);
+      box-shadow: 0 0 0.5cqw rgba(56, 189, 248, 0.85);
+      animation: sideLedPulse 2.8s ease-in-out infinite;
+    }
+    .led-seg:nth-child(2) { animation-delay: 0.35s; background: rgba(245, 200, 76, 0.8); box-shadow: 0 0 0.5cqw rgba(245, 200, 76, 0.9); }
+    .led-seg:nth-child(3) { animation-delay: 0.7s; }
+    .led-seg:nth-child(4) { animation-delay: 1.05s; background: rgba(245, 200, 76, 0.75); box-shadow: 0 0 0.5cqw rgba(245, 200, 76, 0.85); }
+    .led-seg:nth-child(5) { animation-delay: 1.4s; }
+
+    @keyframes sideLedPulse {
+      0%, 100% { opacity: 0.95; }
+      50% { opacity: 0.28; }
+    }
+
+    /* 四角立體切面寶石 */
+    .corner-gem {
+      position: absolute;
+      width: 6.2cqw;
+      height: 6.2cqw;
+      z-index: 35;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: gemBreath 3.4s ease-in-out infinite;
+    }
+
+    #gem-tl { top: 0.6%; left: 0.6%; animation-delay: 0s; }
+    #gem-tr { top: 0.6%; right: 0.6%; animation-delay: 0.85s; }
+    #gem-bl { bottom: 0.6%; left: 0.6%; animation-delay: 1.7s; }
+    #gem-br { bottom: 0.6%; right: 0.6%; animation-delay: 2.55s; }
+
+    .corner-gem svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    @keyframes gemBreath {
+      0%, 100% { transform: scale(1); filter: brightness(1.05); }
+      50% { transform: scale(1.055); filter: brightness(1.26); }
+    }
+
+    /* =========================================================================
+       7. 左上角（REC / 時間碼 / 即時音訊波形）與右上角活動標題
+       ========================================================================= */
+    #hud-top-left {
+      position: absolute;
+      top: 5.6%;
+      left: 7.4%;
+      z-index: 25;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35cqw;
+    }
+
+    .rec-header {
+      display: flex;
+      align-items: center;
+      gap: 0.65cqw;
+    }
+
+    .rec-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35cqw;
+      padding: 0.14cqw 0.5cqw;
+      border-radius: 0.2cqw;
+      background: rgba(239, 68, 68, 0.16);
+      border: 1px solid rgba(239, 68, 68, 0.72);
+    }
+
+    .rec-dot {
+      width: 0.54cqw;
+      height: 0.54cqw;
+      border-radius: 50%;
+      background: #ff2e4c;
+      box-shadow: 0 0 0.6cqw #ff2e4c, 0 0 1.2cqw rgba(255, 46, 76, 0.85);
+      animation: recBlink 1.1s ease-in-out infinite;
+    }
+
+    @keyframes recBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    .rec-label {
+      font-family: var(--font-display);
+      font-size: 0.82cqw;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      color: #ffffff;
+    }
+
+    .cam-code {
+      font-family: var(--font-mono);
+      font-size: 1.08cqw;
+      letter-spacing: 0.12em;
+      color: #e2e8f0;
+      text-shadow: 0 0 0.6cqw rgba(56, 189, 248, 0.65), 0 1px 3px rgba(0, 0, 0, 0.9);
+    }
+
+    .timecode-text {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 1.52cqw;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #ffffff;
+      text-shadow: 0 0 0.8cqw rgba(56, 189, 248, 0.55), 0 2px 4px rgba(0, 0, 0, 0.9);
+    }
+
+    .audio-wave-row {
+      display: flex;
+      align-items: center;
+      gap: 0.55cqw;
+      margin-top: 0.1cqw;
+    }
+
+    .speaker-icon {
+      width: 1.2cqw;
+      height: 1.2cqw;
+      color: var(--gold-light);
+      filter: drop-shadow(0 0 0.35cqw rgba(245, 200, 76, 0.8));
+      flex-shrink: 0;
+    }
+
+    #audio-eq-bars {
+      display: flex;
+      align-items: center;
+      gap: 0.18cqw;
+      height: 1.55cqw;
+    }
+
+    .eq-bar {
+      width: 0.2cqw;
+      height: 24%;
+      border-radius: 0.1cqw;
+      background: linear-gradient(180deg, #fff3b0 0%, #38bdf8 100%);
+      box-shadow: 0 0 0.35cqw rgba(56, 189, 248, 0.7);
+      will-change: height;
+    }
+
+    /* 右上角 HUD 模組 */
+    #hud-top-right {
+      position: absolute;
+      top: 5.2%;
+      right: 7.4%;
+      z-index: 25;
+      pointer-events: none;
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.24cqw;
+    }
+
+    .tr-main-title {
+      font-family: var(--font-sans);
+      font-size: 2.3cqw;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      line-height: 1.1;
+      background: linear-gradient(180deg, #fffbe6 0%, #f7d36f 48%, #c79124 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0.15cqw 0.45cqw rgba(0, 0, 0, 0.9)) drop-shadow(0 0 0.7cqw rgba(245, 200, 76, 0.45));
+    }
+
+    .tr-sub-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5cqw;
+    }
+
+    .gold-tech-stripes {
+      display: inline-flex;
+      gap: 0.16cqw;
+      transform: skewX(-22deg);
+    }
+
+    .gold-tech-stripes span {
+      display: block;
+      width: 0.28cqw;
+      height: 0.76cqw;
+      background: linear-gradient(180deg, #fff3b0, #d49b27);
+      box-shadow: 0 0 0.4cqw rgba(245, 200, 76, 0.65);
+    }
+
+    .tr-sub-en {
+      font-family: var(--font-display);
+      font-size: 0.94cqw;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #f8fafc;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+    }
+
+    .tr-tag-zh {
+      font-family: var(--font-sans);
+      font-size: 1.32cqw;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      color: #fff3b0;
+      text-shadow: 0 0 0.65cqw rgba(245, 200, 76, 0.6), 0 1px 4px rgba(0, 0, 0, 0.95);
+    }
+
+    /* =========================================================================
+       8. 中段左右細緻遙測資訊與掃描雷達
+       ========================================================================= */
+    #hud-mid-left {
+      position: absolute;
+      top: 32%;
+      left: 5.6%;
+      z-index: 20;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3.4cqw;
+    }
+
+    .telemetry-block {
+      padding: 0.5cqw 0.8cqw;
+      border-left: 0.14cqw solid rgba(148, 163, 184, 0.55);
+      border-top: 0.08cqw solid rgba(148, 163, 184, 0.25);
+      border-bottom: 0.08cqw solid rgba(148, 163, 184, 0.25);
+      background: linear-gradient(90deg, rgba(10, 20, 40, 0.34) 0%, rgba(10, 20, 40, 0) 100%);
+      font-family: var(--font-mono);
+      font-size: 0.75cqw;
+      line-height: 1.48;
+      letter-spacing: 0.08em;
+      color: rgba(241, 245, 249, 0.82);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+    }
+
+    #hud-mid-right {
+      position: absolute;
+      bottom: 12.2%;
+      right: 5.6%;
+      z-index: 20;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4cqw;
+    }
+
+    .radar-meta {
+      text-align: right;
+      align-self: flex-end;
+      font-family: var(--font-mono);
+      font-size: 0.74cqw;
+      line-height: 1.4;
+      letter-spacing: 0.07em;
+      color: rgba(241, 245, 249, 0.84);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+      margin-bottom: 0.2cqw;
+    }
+
+    .radar-wrap {
+      position: relative;
+      width: 6cqw;
+      height: 6cqw;
+    }
+
+    .radar-sweep {
+      transform-origin: 50% 50%;
+      animation: radarSpin 4.2s linear infinite;
+    }
+
+    @keyframes radarSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .radar-label {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.78cqw;
+      letter-spacing: 0.12em;
+      color: #7dd3fc;
+      text-shadow: 0 0 0.5cqw rgba(56, 189, 248, 0.7), 0 1px 3px rgba(0, 0, 0, 0.95);
+    }
+
+    /* =========================================================================
+       9. 左下角電影級異形階梯裝甲藝人名牌（外層專責縮放，預設縮小 25% = 0.75）
+       ========================================================================= */
+    #artist-lower-third-scaler {
+      position: absolute;
+      bottom: 7.6%;
+      left: 7.4%;
+      z-index: 28;
+      pointer-events: none;
+      transform-origin: left bottom;
+      transform: scale(var(--np-scale, 0.75));
+      transition: transform 0.18s ease-out;
+      will-change: transform;
+    }
+
+    #artist-lower-third {
+      position: relative;
+      width: 44.5cqw;
+      height: 12.8cqw;
+      will-change: transform, opacity;
+      filter: drop-shadow(0 0.9cqw 1.8cqw rgba(0, 0, 0, 0.72));
+    }
+
+    #artist-lower-third.anim-enter {
+      animation: nameplateReveal 0.78s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes nameplateReveal {
+      0% {
+        opacity: 0;
+        transform: translate3d(-4.5cqw, 0, 0) skewX(-5deg);
+        filter: brightness(1.85) drop-shadow(0 0.9cqw 1.8cqw rgba(0, 0, 0, 0.72));
+      }
+      48% {
+        opacity: 1;
+        transform: translate3d(0.35cqw, 0, 0) skewX(0.8deg);
+        filter: brightness(1.25) drop-shadow(0 0.9cqw 1.8cqw rgba(0, 0, 0, 0.72));
+      }
+      100% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) skewX(0deg);
+        filter: brightness(1) drop-shadow(0 0.9cqw 1.8cqw rgba(0, 0, 0, 0.72));
+      }
+    }
+
+    .nameplate-svg-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    #stage-container.bg-green .np-glass-fill,
+    #stage-container.bg-blue .np-glass-fill {
+      fill-opacity: 0.96;
+    }
+
+    .nameplate-content {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      height: 100%;
+      padding: 0.95cqw 1.8cqw 0.82cqw 2.15cqw;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .np-top-bar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1.2cqw;
+    }
+
+    .np-title-wrap {
+      width: 51%;
+      padding-top: 0.1cqw;
+    }
+
+    .np-badge-text {
+      font-family: var(--font-sans);
+      font-size: 1.32cqw;
+      font-weight: 900;
+      letter-spacing: 0.11em;
+      color: #ffffff;
+      text-shadow: 0 0 0.65cqw rgba(56, 189, 248, 0.7), 0 1px 4px rgba(0, 0, 0, 0.95);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .np-divider-line {
+      margin-top: 0.38cqw;
+      height: 0.12cqw;
+      width: 96%;
+      background: linear-gradient(90deg, #60a5fa 0%, #38bdf8 45%, #f5d061 85%, transparent 100%);
+      box-shadow: 0 0 0.5cqw rgba(56, 189, 248, 0.75);
+    }
+
+    .np-energy-embedded {
+      width: 41%;
+      padding-top: 0.95cqw;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25cqw;
+    }
+
+    .me-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.3cqw;
+    }
+
+    .me-label {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.74cqw;
+      letter-spacing: 0.04em;
+      color: #fef08a;
+      text-shadow: 0 0 0.4cqw rgba(245, 208, 97, 0.65), 0 1px 2px rgba(0, 0, 0, 0.95);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .me-pct {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 0.92cqw;
+      font-weight: 800;
+      color: #fff8dc;
+      text-shadow: 0 0 0.5cqw rgba(245, 208, 97, 0.85);
+      flex-shrink: 0;
+    }
+
+    .me-bar-track {
+      position: relative;
+      height: 0.68cqw;
+      padding: 0.1cqw;
+      border: 1px solid rgba(245, 208, 97, 0.75);
+      background: rgba(4, 9, 20, 0.82);
+      box-shadow: inset 0 0 0.4cqw rgba(0, 0, 0, 0.95), 0 0 0.45cqw rgba(245, 208, 97, 0.28);
+      overflow: hidden;
+    }
+
+    .me-bar-fill {
+      position: relative;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #d97706 0%, #f59e0b 45%, #fde047 100%);
+      box-shadow: 0 0 0.7cqw rgba(251, 191, 36, 0.95);
+      overflow: hidden;
+      will-change: width;
+    }
+
+    .me-bar-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 38%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+      transform: skewX(-24deg);
+      animation: energySweep 1.7s linear infinite;
+    }
+
+    @keyframes energySweep {
+      0% { left: -45%; }
+      100% { left: 130%; }
+    }
+
+    .me-status-right {
+      text-align: right;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.74cqw;
+      letter-spacing: 0.1em;
+      color: #7dd3fc;
+      text-shadow: 0 0 0.45cqw rgba(56, 189, 248, 0.75), 0 1px 2px rgba(0, 0, 0, 0.95);
+    }
+
+    .np-main-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.65cqw;
+      margin-top: -0.65cqw;
+      padding-right: 2.2cqw;
+    }
+
+    .np-name {
+      font-family: var(--font-sans);
+      font-size: 3.85cqw;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      line-height: 1.06;
+      background: linear-gradient(180deg, #fff8dc 0%, #f5d061 52%, #c89223 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0.22cqw 0.18cqw rgba(0, 0, 0, 0.95)) drop-shadow(0 0 0.75cqw rgba(245, 208, 97, 0.45));
+      white-space: nowrap;
+    }
+
+    .np-paren {
+      font-family: var(--font-display);
+      font-size: 2.55cqw;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 1.06;
+      background: linear-gradient(180deg, #fff8dc 0%, #f5d061 56%, #c89223 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0.2cqw 0.16cqw rgba(0, 0, 0, 0.95)) drop-shadow(0 0 0.6cqw rgba(245, 208, 97, 0.4));
+      white-space: nowrap;
+    }
+
+    .np-sub {
+      font-family: var(--font-mono);
+      font-size: 1.12cqw;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #f5d061;
+      text-shadow: 0 0 0.45cqw rgba(245, 208, 97, 0.45), 0 1px 3px rgba(0, 0, 0, 0.95);
+      white-space: nowrap;
+    }
+
+    /* =========================================================================
+       10. 底部中央金屬梯形底座（法金匯聚 共創新紀）
+       ========================================================================= */
+    #hud-bottom-dock {
+      position: absolute;
+      bottom: 0.35%;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      pointer-events: none;
+      padding: 0.55cqw 3.4cqw 0.45cqw 3.4cqw;
+      background: linear-gradient(180deg, rgba(16, 26, 48, 0.94) 0%, rgba(7, 11, 22, 0.98) 100%);
+      border-top: 0.14cqw solid rgba(245, 200, 76, 0.78);
+      clip-path: polygon(1.6cqw 0, calc(100% - 1.6cqw) 0, 100% 100%, 0 100%);
+      box-shadow: 0 -0.4cqw 1.6cqw rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.7cqw;
+    }
+
+    .dock-flare {
+      width: 0.62cqw;
+      height: 0.62cqw;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffffff 0%, #fde047 45%, transparent 75%);
+      box-shadow: 0 0 0.7cqw #fde047;
+    }
+
+    .dock-text {
+      font-family: var(--font-serif);
+      font-size: 1.38cqw;
+      font-weight: 900;
+      letter-spacing: 0.24em;
+      background: linear-gradient(180deg, #fffbe6 0%, #f5d061 52%, #c79124 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0.12cqw 0.3cqw rgba(0, 0, 0, 0.95));
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部工具列 -->
+  <header id="top-header">
+    <div class="header-brand">
+      <span class="brand-dot"></span>
+      <div>
+        <h1 class="header-title">2026法金盛會 // 尾牙藝人介紹 戰艦 HUD 產生器</h1>
+        <p class="header-sub">16:9 藝人專屬合成視窗｜名牌預設縮小 25% 不搶藝人風采｜四色寶石與即時波形</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="btn-header-upload" type="button" class="btn">＋ 匯入影片 / 圖片</button>
+      <button id="btn-header-pure" type="button" class="btn btn-primary">● 進入純淨錄製模式</button>
+    </div>
+  </header>
+
+  <input id="file-input" type="file" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp" class="hidden" />
+
+  <!-- 主工作區 -->
+  <main id="workspace">
+
+    <!-- 左側：16:9 互動畫布與播放控制列 -->
+    <section id="stage-column">
+
+      <div id="stage-container" class="cinematic-on">
+
+        <!-- Layer 1: 影片與圖片媒體層 -->
+        <div id="media-layer">
+          <video id="preview-video" playsinline></video>
+          <img id="preview-image" alt="匯入的藝人圖片" />
+        </div>
+
+        <!-- Layer 2: 預設深色科技網格佔位層 -->
+        <div id="placeholder-layer" title="點擊或拖曳藝人介紹影片到此處">
+          <div class="ph-pill">BATTLESHIP HUD // ARTIST INTRO 16:9</div>
+          <div class="ph-title">拖曳或點擊此處匯入藝人介紹影片</div>
+          <div class="ph-sub">支援 MP4 / MOV / WebM 影片（預設保留原音並驅動波形）與 JPG / PNG 圖片</div>
+        </div>
+
+        <!-- Layer 3: 外層戰艦金屬裝甲邊框 -->
+        <div id="hud-bezel-layer">
+          <svg class="bezel-svg" viewBox="0 0 1600 900" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="steelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1b2944" stop-opacity="0.92" />
+                <stop offset="50%" stop-color="#0e172a" stop-opacity="0.88" />
+                <stop offset="100%" stop-color="#1a2742" stop-opacity="0.92" />
+              </linearGradient>
+              <linearGradient id="goldLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.7" />
+                <stop offset="30%" stop-color="#f5c84c" stop-opacity="0.95" />
+                <stop offset="70%" stop-color="#f5c84c" stop-opacity="0.95" />
+                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.7" />
+              </linearGradient>
+            </defs>
+
+            <!-- 頂部裝甲護板 -->
+            <path d="M0,0 L1600,0 L1600,32 L1520,32 L1492,16 L1040,16 L1010,36 L590,36 L560,16 L108,16 L80,32 L0,32 Z" fill="url(#steelGrad)" stroke="rgba(148,163,184,0.35)" stroke-width="1.2" />
+            <line x1="610" y1="30" x2="990" y2="30" stroke="url(#goldLineGrad)" stroke-width="2" />
+
+            <!-- 底部裝甲護板 -->
+            <path d="M0,900 L1600,900 L1600,868 L1520,868 L1492,884 L1080,884 L1050,864 L550,864 L520,884 L108,884 L80,868 L0,868 Z" fill="url(#steelGrad)" stroke="rgba(148,163,184,0.35)" stroke-width="1.2" />
+
+            <!-- 左右裝甲側翼 -->
+            <path d="M0,32 L32,32 L32,120 L18,148 L18,752 L32,780 L32,868 L0,868 Z" fill="url(#steelGrad)" stroke="rgba(148,163,184,0.3)" stroke-width="1.2" />
+            <path d="M1600,32 L1568,32 L1568,120 L1582,148 L1582,752 L1568,780 L1568,868 L1600,868 Z" fill="url(#steelGrad)" stroke="rgba(148,163,184,0.3)" stroke-width="1.2" />
+
+            <!-- 內框細線與四角科技折線 -->
+            <rect x="34" y="34" width="1532" height="832" fill="none" stroke="rgba(56,189,248,0.22)" stroke-width="1" />
+            <polyline points="42,110 42,42 120,42" fill="none" stroke="#f5c84c" stroke-width="2.2" opacity="0.85" />
+            <polyline points="1480,42 1558,42 1558,110" fill="none" stroke="#38bdf8" stroke-width="2.2" opacity="0.85" />
+            <polyline points="42,790 42,858 120,858" fill="none" stroke="#f5c84c" stroke-width="2.2" opacity="0.85" />
+            <polyline points="1480,858 1558,858 1558,790" fill="none" stroke="#38bdf8" stroke-width="2.2" opacity="0.85" />
+          </svg>
+
+          <!-- 左右垂直呼吸 LED 燈條 -->
+          <div class="side-led-strip left">
+            <span class="led-seg"></span><span class="led-seg"></span><span class="led-seg"></span><span class="led-seg"></span><span class="led-seg"></span>
+          </div>
+          <div class="side-led-strip right">
+            <span class="led-seg"></span><span class="led-seg"></span><span class="led-seg"></span><span class="led-seg"></span><span class="led-seg"></span>
+          </div>
+        </div>
+
+        <!-- Layer 4: 四角立體切面發光寶石（由 JS 動態渲染） -->
+        <div id="gem-tl" class="corner-gem"></div>
+        <div id="gem-tr" class="corner-gem"></div>
+        <div id="gem-bl" class="corner-gem"></div>
+        <div id="gem-br" class="corner-gem"></div>
+
+        <!-- Layer 5: 左上角 REC + 時間碼 + 即時音訊波形 -->
+        <div id="hud-top-left">
+          <div class="rec-header">
+            <span class="rec-badge">
+              <span class="rec-dot"></span>
+              <span class="rec-label">REC</span>
+            </span>
+            <span id="hud-cam-code" class="cam-code">CAM-03 // GUEST SCAN</span>
+          </div>
+          <div id="hud-timecode" class="timecode-text">00:00:00:00</div>
+          <div class="audio-wave-row">
+            <svg class="speaker-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+            </svg>
+            <div id="audio-eq-bars"></div>
+          </div>
+        </div>
+
+        <!-- Layer 6: 右上角活動標題 -->
+        <div id="hud-top-right">
+          <div id="hud-tr-main" class="tr-main-title">2026法金盛會</div>
+          <div class="tr-sub-row">
+            <span class="gold-tech-stripes"><span></span><span></span><span></span></span>
+            <span class="tr-sub-en">YEAR-END PARTY</span>
+          </div>
+          <div id="hud-tr-tag" class="tr-tag-zh">// 藝人特訪</div>
+        </div>
+
+        <!-- Layer 7: 左側細緻遙測資訊 -->
+        <div id="hud-mid-left">
+          <div class="telemetry-block">
+            <div>TRANSMISSION: ONLINE</div>
+            <div>DNA MATCH: 100%</div>
+            <div>AUDIO: ACTIVE</div>
+          </div>
+          <div class="telemetry-block">
+            <div>SIGNAL SYNC: 100%</div>
+            <div>FRAME LOCK: 60FPS</div>
+            <div>LINK: SECURE</div>
+          </div>
+        </div>
+
+        <!-- Layer 8: 右下角雷達掃描器 -->
+        <div id="hud-mid-right">
+          <div class="radar-meta">
+            <div>TRANS MATCH: 100%</div>
+            <div>AUDIO: ACTIVE</div>
+          </div>
+          <div class="radar-wrap">
+            <svg viewBox="0 0 100 100" style="width:100%;height:100%;" aria-hidden="true">
+              <circle cx="50" cy="50" r="44" fill="rgba(8, 15, 30, 0.35)" stroke="rgba(56, 189, 248, 0.45)" stroke-width="1.2" />
+              <circle cx="50" cy="50" r="30" fill="none" stroke="rgba(56, 189, 248, 0.3)" stroke-width="1" stroke-dasharray="3 3" />
+              <circle cx="50" cy="50" r="15" fill="none" stroke="rgba(245, 200, 76, 0.45)" stroke-width="1" />
+              <line x1="50" y1="2" x2="50" y2="98" stroke="rgba(56, 189, 248, 0.25)" stroke-width="0.9" />
+              <line x1="2" y1="50" x2="98" y2="50" stroke="rgba(56, 189, 248, 0.25)" stroke-width="0.9" />
+              <g class="radar-sweep">
+                <path d="M50,50 L50,6 A44,44 0 0,1 88,28 Z" fill="rgba(56, 189, 248, 0.28)" />
+                <line x1="50" y1="50" x2="50" y2="6" stroke="#7dd3fc" stroke-width="1.6" />
+              </g>
+              <circle cx="50" cy="50" r="2.6" fill="#ffd02b" />
+            </svg>
+          </div>
+          <div class="radar-label">TARGET: ACTIVE</div>
+        </div>
+
+        <!-- Layer 9: 左下角電影級階梯裝甲藝人名牌（外層 Scaler 預設縮小至 75%） -->
+        <div id="artist-lower-third-scaler">
+          <div id="artist-lower-third">
+            <svg class="nameplate-svg-bg" viewBox="0 0 720 206" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="npGlassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="rgba(12, 34, 72, 0.90)" />
+                  <stop offset="52%" stop-color="rgba(8, 22, 48, 0.86)" />
+                  <stop offset="100%" stop-color="rgba(6, 15, 34, 0.88)" />
+                </linearGradient>
+                <linearGradient id="npTopInnerGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="rgba(56, 189, 248, 0.34)" />
+                  <stop offset="45%" stop-color="rgba(56, 189, 248, 0.04)" />
+                  <stop offset="100%" stop-color="rgba(56, 189, 248, 0)" />
+                </linearGradient>
+                <pattern id="npDiagSheen" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+                  <line x1="0" y1="0" x2="0" y2="12" stroke="rgba(186, 230, 253, 0.05)" stroke-width="2" />
+                </pattern>
+                <linearGradient id="npBlueBorder" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#60a5fa" />
+                  <stop offset="65%" stop-color="#38bdf8" />
+                  <stop offset="100%" stop-color="#93c5fd" />
+                </linearGradient>
+                <linearGradient id="npGoldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#fff3b0" />
+                  <stop offset="48%" stop-color="#f5d061" />
+                  <stop offset="100%" stop-color="#d4af37" />
+                </linearGradient>
+                <linearGradient id="npPlasmaCore" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#f5d061" stop-opacity="0.2" />
+                  <stop offset="35%" stop-color="#fff8dc" stop-opacity="1" />
+                  <stop offset="50%" stop-color="#ffffff" stop-opacity="1" />
+                  <stop offset="65%" stop-color="#f5d061" stop-opacity="1" />
+                  <stop offset="100%" stop-color="#d4af37" stop-opacity="0.2" />
+                </linearGradient>
+                <filter id="npBlueGlow" x="-15%" y="-15%" width="130%" height="130%">
+                  <feGaussianBlur stdDeviation="3.2" result="blur" />
+                  <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                </filter>
+                <filter id="npGoldGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="4.2" result="blur" />
+                  <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                </filter>
+              </defs>
+
+              <!-- 異形階梯裝甲主底板 -->
+              <polygon class="np-glass-fill" points="12,38 40,10 388,10 426,48 708,48 708,144 652,200 12,200" fill="url(#npGlassGrad)" />
+              <polygon points="12,38 40,10 388,10 426,48 708,48 708,144 652,200 12,200" fill="url(#npTopInnerGlow)" />
+              <polygon points="12,38 40,10 388,10 426,48 708,48 708,144 652,200 12,200" fill="url(#npDiagSheen)" />
+
+              <!-- 左上與階梯折角冰晶藍發光描邊 -->
+              <polyline points="12,200 12,38 40,10 388,10 426,48" fill="none" stroke="url(#npBlueBorder)" stroke-width="2.8" filter="url(#npBlueGlow)" />
+
+              <!-- 右側與右下斜切香檳金發光描邊 -->
+              <polyline points="426,48 708,48 708,144 652,200 12,200" fill="none" stroke="url(#npGoldBorder)" stroke-width="2.6" filter="url(#npGoldGlow)" />
+
+              <!-- 右下角 45 度發光斜線裝飾 -->
+              <line x1="704" y1="138" x2="646" y2="196" stroke="#fff8dc" stroke-width="3.6" filter="url(#npGoldGlow)" />
+              <line x1="696" y1="128" x2="638" y2="186" stroke="#f5d061" stroke-width="1.2" opacity="0.7" />
+
+              <!-- 階梯折角上方 5 條金色斜紋刻度 (/////) -->
+              <g fill="url(#npGoldBorder)" filter="url(#npGoldGlow)">
+                <polygon points="396,26 404,14 411,14 403,26" />
+                <polygon points="409,26 417,14 424,14 416,26" />
+                <polygon points="422,26 430,14 437,14 429,26" />
+                <polygon points="435,26 443,14 450,14 442,26" />
+                <polygon points="448,26 456,14 463,14 455,26" />
+              </g>
+
+              <!-- 左側垂直黃金等離子光柱 -->
+              <rect x="6" y="42" width="12" height="148" rx="6" fill="rgba(245, 208, 97, 0.32)" filter="url(#npGoldGlow)" />
+              <rect x="10" y="50" width="4.5" height="132" rx="2.2" fill="url(#npPlasmaCore)" filter="url(#npGoldGlow)" />
+              <circle cx="12.2" cy="116" r="5" fill="#ffffff" opacity="0.85" filter="url(#npGoldGlow)" />
+            </svg>
+
+            <!-- 名牌內容與右側內嵌充能模組 -->
+            <div class="nameplate-content">
+              <div class="np-top-bar">
+                <div class="np-title-wrap">
+                  <div id="hud-guest-title" class="np-badge-text">2026法金盛會 特別嘉賓</div>
+                  <div class="np-divider-line"></div>
+                </div>
+                <div class="np-energy-embedded">
+                  <div class="me-top">
+                    <span id="hud-energy-title" class="me-label">CORE IGNITION // 能量充能中...</span>
+                    <span id="hud-energy-pct" class="me-pct">0%</span>
+                  </div>
+                  <div class="me-bar-track">
+                    <div id="hud-energy-fill" class="me-bar-fill"></div>
+                  </div>
+                  <div id="hud-energy-status" class="me-status-right">TARGET: ACTIVE</div>
+                </div>
+              </div>
+
+              <div class="np-main-row">
+                <span id="hud-artist-name" class="np-name">孫淑媚</span>
+                <span id="hud-artist-paren" class="np-paren">(May Sun)</span>
+              </div>
+
+              <div id="hud-artist-sub" class="np-sub">ARTIST GUEST // 金曲歌后</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Layer 10: 底部中央金屬梯形底座 -->
+        <div id="hud-bottom-dock">
+          <span class="dock-flare"></span>
+          <span id="hud-footer-title" class="dock-text">法金匯聚 共創新紀</span>
+          <span class="dock-flare"></span>
+        </div>
+
+      </div>
+
+      <!-- 畫布下方播放控制列 -->
+      <div id="stage-toolbar">
+        <div class="toolbar-group">
+          <button id="btn-play-pause" type="button" class="btn btn-sm" title="播放 / 暫停">▶</button>
+          <button id="btn-sync-start" type="button" class="btn btn-sm">↻ 播放 / 從頭同步 (Space)</button>
+          <button id="btn-mute" type="button" class="btn btn-sm">🔊 原音開啟</button>
+        </div>
+        <div class="toolbar-group">
+          <span id="file-status-text" class="file-status">尚未匯入素材</span>
+          <span id="video-dur-badge" class="dur-badge hidden">00:00</span>
+          <button id="btn-clear-media" type="button" class="btn btn-sm btn-danger hidden">移除</button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 右側：深色控制面板 -->
+    <aside id="control-panel">
+
+      <!-- 卡片 1：名牌縮放比例（20%–30% 精準微調） -->
+      <div class="panel-card">
+        <div class="card-head">
+          <h2 class="card-title">01. 名牌縮放比例（不搶藝人風采）</h2>
+          <span id="scale-readout" class="scale-readout">75%</span>
+        </div>
+        <input id="inp-np-scale" type="range" min="50" max="110" step="1" value="75" class="range-slider" />
+        <div class="grid-4">
+          <button type="button" data-scale="70" class="btn btn-sm btn-seg scale-quick-btn">70%</button>
+          <button type="button" data-scale="75" class="btn btn-sm btn-seg scale-quick-btn active">75%</button>
+          <button type="button" data-scale="80" class="btn btn-sm btn-seg scale-quick-btn">80%</button>
+          <button type="button" data-scale="100" class="btn btn-sm btn-seg scale-quick-btn">100%</button>
+        </div>
+        <p class="tip-box">
+          預設已縮小 25%（75%）並鎖定左下角對齊；可在 70%–80% 間自由微調，確保名牌精緻且不遮擋藝人。
+        </p>
+      </div>
+
+      <!-- 卡片 2：素材匯入與底圖模式 -->
+      <div class="panel-card">
+        <div class="card-head">
+          <h2 class="card-title">02. 素材匯入與輸出模式</h2>
+          <span class="card-tag">MEDIA / BG</span>
+        </div>
+        <button id="btn-panel-upload" type="button" class="btn btn-dashed">＋ 選擇藝人影片 (MP4/MOV) 或圖片</button>
+        <div>
+          <span class="field-label">背景輸出模式</span>
+          <div class="grid-2">
+            <button type="button" data-bg="media" class="btn btn-sm btn-seg bg-btn active">媒體預覽</button>
+            <button type="button" data-bg="black" class="btn btn-sm btn-seg bg-btn">純黑 (#000)</button>
+            <button type="button" data-bg="green" class="btn btn-sm btn-seg bg-btn">綠幕 (#00FF00)</button>
+            <button type="button" data-bg="blue" class="btn btn-sm btn-seg bg-btn">藍幕 (#0000FF)</button>
+          </div>
+        </div>
+        <div class="grid-2">
+          <button id="btn-fit-cover" type="button" class="btn btn-sm btn-seg active">填滿 (Cover)</button>
+          <button id="btn-fit-contain" type="button" class="btn btn-sm btn-seg">符合 (Contain)</button>
+        </div>
+        <label class="toggle-row">
+          <div>
+            <div>電影感微調色濾鏡</div>
+            <div class="toggle-sub">微暗角與冷暖對比，讓畫面融入戰艦外框</div>
+          </div>
+          <input id="chk-cinematic" type="checkbox" checked />
+        </label>
+      </div>
+
+      <!-- 卡片 3：四角寶石排列 -->
+      <div class="panel-card">
+        <div class="card-head">
+          <h2 class="card-title">03. 四角寶石排列配置</h2>
+          <span class="card-tag">4-GEM LAYOUT</span>
+        </div>
+        <button id="btn-gem-default" type="button" class="btn btn-sm btn-seg active" style="justify-content:flex-start;">
+          左上紅・左下黃・右上藍・右下綠（預設）
+        </button>
+        <button id="btn-gem-kv" type="button" class="btn btn-sm btn-seg" style="justify-content:flex-start;">
+          左上紅・左下綠・右上藍・右下黃（主視覺排列）
+        </button>
+      </div>
+
+      <!-- 卡片 4：藝人名牌與 HUD 文字即時編輯 -->
+      <div class="panel-card">
+        <div class="card-head">
+          <h2 class="card-title">04. 藝人名牌與 HUD 文字</h2>
+          <span class="card-tag">LIVE EDIT</span>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label for="inp-artist-name" class="field-label">藝人姓名</label>
+            <input id="inp-artist-name" type="text" value="孫淑媚" class="panel-input" />
+          </div>
+          <div>
+            <label for="inp-artist-paren" class="field-label">括號副名（留空隱藏）</label>
+            <input id="inp-artist-paren" type="text" value="May Sun" class="panel-input" />
+          </div>
+        </div>
+        <div>
+          <label for="inp-guest-title" class="field-label">名牌頂部頭銜</label>
+          <input id="inp-guest-title" type="text" value="2026法金盛會 特別嘉賓" class="panel-input" />
+        </div>
+        <div>
+          <label for="inp-artist-sub" class="field-label">名牌底部副標</label>
+          <input id="inp-artist-sub" type="text" value="ARTIST GUEST // 金曲歌后" class="panel-input" />
+        </div>
+        <div class="grid-2">
+          <div>
+            <label for="inp-tr-main" class="field-label">右上活動主標</label>
+            <input id="inp-tr-main" type="text" value="2026法金盛會" class="panel-input" />
+          </div>
+          <div>
+            <label for="inp-tr-tag" class="field-label">右上單元副標</label>
+            <input id="inp-tr-tag" type="text" value="// 藝人特訪" class="panel-input" />
+          </div>
+        </div>
+        <div>
+          <label for="inp-cam-code" class="field-label">左上機位標籤</label>
+          <input id="inp-cam-code" type="text" value="CAM-03 // GUEST SCAN" class="panel-input mono" />
+        </div>
+      </div>
+
+      <!-- 卡片 5：充能條參數與動畫控制 -->
+      <div class="panel-card">
+        <div class="card-head">
+          <h2 class="card-title">05. 能量充能條參數</h2>
+          <span class="card-tag">CORE IGNITION</span>
+        </div>
+        <div class="grid-2">
+          <div>
+            <label for="inp-start-pct" class="field-label">起始 %</label>
+            <input id="inp-start-pct" type="number" min="0" max="100" value="0" class="panel-input mono" />
+          </div>
+          <div>
+            <label for="inp-end-pct" class="field-label">目標 %</label>
+            <input id="inp-end-pct" type="number" min="0" max="100" value="100" class="panel-input mono" />
+          </div>
+          <div>
+            <label for="inp-delay" class="field-label">延遲秒數 (s)</label>
+            <input id="inp-delay" type="number" min="0" max="10" step="0.5" value="0.5" class="panel-input mono" />
+          </div>
+          <div>
+            <label for="inp-duration" class="field-label">充能時長 (s)</label>
+            <input id="inp-duration" type="number" min="1" max="120" step="0.5" value="26" class="panel-input mono" />
+          </div>
+        </div>
+        <label class="toggle-row">
+          <span>自動同步影片長度</span>
+          <input id="chk-sync-dur" type="checkbox" checked />
+        </label>
+        <label class="toggle-row">
+          <span>名牌進場動畫</span>
+          <input id="chk-np-anim" type="checkbox" checked />
+        </label>
+      </div>
+
+      <!-- 卡片 6：純淨錄製模式 -->
+      <div class="panel-card">
+        <button id="btn-panel-sync" type="button" class="btn">▶ 播放 / 從頭同步 (Space)</button>
+        <button id="btn-panel-pure" type="button" class="btn btn-primary">● 進入純淨錄製模式</button>
+        <div style="font-size:11px;line-height:1.6;color:#94a3b8;">
+          <div><kbd>Space</kbd> 同步重播影片、時間碼、波形與充能條</div>
+          <div><kbd>ESC</kbd> 退出純淨錄製模式</div>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- 純淨模式 2 秒自動淡出提示 -->
+  <div id="recording-hint">按 Space 同步播放 / 按 ESC 退出</div>
+
+  <!-- 非阻斷式提示訊息 -->
+  <div id="toast-msg"><span id="toast-text"></span></div>
+
+  <script>
+    /**
+     * 2026法金盛會 // 尾牙藝人介紹 戰艦 HUD 產生器
+     * 零外部依賴單檔架構：整合 16:9 媒體播放、即時音訊波形、四色寶石切換、
+     * 電影級階梯裝甲名牌縮放（預設 75%）與純淨錄製模式。
+     */
+    (function () {
+      // =======================================================================
+      // 1. 狀態定義
+      // =======================================================================
+      const state = {
+        npScale: 75,              // 名牌縮放比例 (50 - 110%)，預設 75%（縮小 25%）
+        bgMode: 'media',          // 'media' | 'black' | 'green' | 'blue'
+        fitMode: 'cover',         // 'cover' | 'contain'
+        gemLayout: 'default',     // 'default' | 'kv'
+        mediaType: null,          // null | 'video' | 'image'
+        mediaUrl: null,
+        isPureMode: false,
+        startPct: 0,
+        endPct: 100,
+        delaySec: 0.5,
+        durationSec: 26,
+        autoSyncDur: true,
+        npAnimEnabled: true,
+        cinematicEnabled: true
+      };
+
+      // 動畫、時間碼與 Web Audio API 參照
+      let tcRafId = null;
+      let tcStartTime = null;
+      let tcRunning = false;
+      let energyRafId = null;
+      let energyDelayTimer = null;
+      let eqRafId = null;
+      let hintTimer = null;
+      let toastTimer = null;
+
+      let audioCtx = null;
+      let analyserNode = null;
+      let audioSourceConnected = false;
+      let freqDataArray = null;
+
+      // =======================================================================
+      // 2. DOM 元素參照
+      // =======================================================================
+      const bodyEl = document.body;
+      const stageEl = document.getElementById('stage-container');
+      const fileInputEl = document.getElementById('file-input');
+      const placeholderEl = document.getElementById('placeholder-layer');
+      const videoEl = document.getElementById('preview-video');
+      const imageEl = document.getElementById('preview-image');
+
+      const gemTL = document.getElementById('gem-tl');
+      const gemTR = document.getElementById('gem-tr');
+      const gemBL = document.getElementById('gem-bl');
+      const gemBR = document.getElementById('gem-br');
+
+      const hudCamCode = document.getElementById('hud-cam-code');
+      const hudTimecode = document.getElementById('hud-timecode');
+      const audioEqContainer = document.getElementById('audio-eq-bars');
+      const hudTrMain = document.getElementById('hud-tr-main');
+      const hudTrTag = document.getElementById('hud-tr-tag');
+      const hudGuestTitle = document.getElementById('hud-guest-title');
+      const hudArtistName = document.getElementById('hud-artist-name');
+      const hudArtistParen = document.getElementById('hud-artist-paren');
+      const hudArtistSub = document.getElementById('hud-artist-sub');
+      const lowerThirdEl = document.getElementById('artist-lower-third');
+
+      const hudEnergyPct = document.getElementById('hud-energy-pct');
+      const hudEnergyFill = document.getElementById('hud-energy-fill');
+      const hudEnergyStatus = document.getElementById('hud-energy-status');
+
+      const btnPlayPause = document.getElementById('btn-play-pause');
+      const btnSyncStart = document.getElementById('btn-sync-start');
+      const btnMute = document.getElementById('btn-mute');
+      const fileStatusText = document.getElementById('file-status-text');
+      const videoDurBadge = document.getElementById('video-dur-badge');
+      const btnClearMedia = document.getElementById('btn-clear-media');
+
+      const inpNpScale = document.getElementById('inp-np-scale');
+      const scaleReadout = document.getElementById('scale-readout');
+      const scaleQuickButtons = document.querySelectorAll('.scale-quick-btn');
+
+      const bgButtons = document.querySelectorAll('.bg-btn');
+      const btnFitCover = document.getElementById('btn-fit-cover');
+      const btnFitContain = document.getElementById('btn-fit-contain');
+      const btnGemDefault = document.getElementById('btn-gem-default');
+      const btnGemKv = document.getElementById('btn-gem-kv');
+
+      const inpArtistName = document.getElementById('inp-artist-name');
+      const inpArtistParen = document.getElementById('inp-artist-paren');
+      const inpGuestTitle = document.getElementById('inp-guest-title');
+      const inpArtistSub = document.getElementById('inp-artist-sub');
+      const inpTrMain = document.getElementById('inp-tr-main');
+      const inpTrTag = document.getElementById('inp-tr-tag');
+      const inpCamCode = document.getElementById('inp-cam-code');
+
+      const inpStartPct = document.getElementById('inp-start-pct');
+      const inpEndPct = document.getElementById('inp-end-pct');
+      const inpDelay = document.getElementById('inp-delay');
+      const inpDuration = document.getElementById('inp-duration');
+      const chkSyncDur = document.getElementById('chk-sync-dur');
+      const chkNpAnim = document.getElementById('chk-np-anim');
+      const chkCinematic = document.getElementById('chk-cinematic');
+
+      const recordingHint = document.getElementById('recording-hint');
+      const toastMsg = document.getElementById('toast-msg');
+      const toastText = document.getElementById('toast-text');
+
+      // =======================================================================
+      // 3. 四色立體切面發光寶石 SVG 產生器
+      // =======================================================================
+      const GEM_PALETTES = {
+        red:    { id: 'ruby',     core: '#ff8da1', mid: '#ff2e4c', deep: '#8a081d', glow: 'rgba(255, 46, 76, 0.85)',  ring: '#ff6b81' },
+        yellow: { id: 'amber',    core: '#fff7b2', mid: '#ffd02b', deep: '#a36800', glow: 'rgba(255, 208, 43, 0.85)', ring: '#ffe066' },
+        blue:   { id: 'sapphire', core: '#9ed8ff', mid: '#1e90ff', deep: '#073b8c', glow: 'rgba(30, 144, 255, 0.85)', ring: '#60b6ff' },
+        green:  { id: 'emerald',  core: '#9effca', mid: '#10e87a', deep: '#046c38', glow: 'rgba(16, 232, 122, 0.85)', ring: '#5ff5a6' }
+      };
+
+      function createGemSVG(colorKey, uid) {
+        const p = GEM_PALETTES[colorKey];
+        const gradId = `gemGrad_${p.id}_${uid}`;
+        const auraId = `gemAura_${p.id}_${uid}`;
+        return `
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <defs>
+              <radialGradient id="${auraId}" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="${p.glow}" stop-opacity="0.72" />
+                <stop offset="48%" stop-color="${p.mid}" stop-opacity="0.22" />
+                <stop offset="100%" stop-color="${p.mid}" stop-opacity="0" />
+              </radialGradient>
+              <linearGradient id="${gradId}" x1="20%" y1="10%" x2="85%" y2="90%">
+                <stop offset="0%" stop-color="${p.core}" />
+                <stop offset="45%" stop-color="${p.mid}" />
+                <stop offset="100%" stop-color="${p.deep}" />
+              </linearGradient>
+            </defs>
+            <circle cx="60" cy="60" r="56" fill="url(#${auraId})" />
+            <ellipse cx="60" cy="60" rx="46" ry="18" fill="none" stroke="${p.ring}" stroke-width="1.2" opacity="0.55" transform="rotate(-28 60 60)" />
+            <ellipse cx="60" cy="60" rx="42" ry="14" fill="none" stroke="#ffffff" stroke-width="0.7" opacity="0.4" transform="rotate(32 60 60)" />
+            <g filter="drop-shadow(0 0 8px ${p.glow})">
+              <polygon points="36,28 84,28 100,52 60,98 20,52" fill="url(#${gradId})" stroke="${p.core}" stroke-width="1.3" />
+              <polygon points="44,34 76,34 86,50 34,50" fill="${p.core}" opacity="0.55" />
+              <polygon points="36,28 44,34 34,50 20,52" fill="${p.mid}" opacity="0.85" />
+              <polygon points="84,28 100,52 86,50 76,34" fill="${p.deep}" opacity="0.6" />
+              <polygon points="20,52 34,50 60,98" fill="${p.deep}" opacity="0.75" />
+              <polygon points="34,50 60,50 60,98" fill="${p.mid}" opacity="0.9" />
+              <polygon points="60,50 86,50 60,98" fill="${p.core}" opacity="0.45" />
+              <polygon points="86,50 100,52 60,98" fill="${p.deep}" opacity="0.85" />
+              <polyline points="20,52 100,52" stroke="#ffffff" stroke-width="0.9" opacity="0.65" />
+            </g>
+            <g transform="translate(41, 35)">
+              <path d="M0,-12 L2,-2 L12,0 L2,2 L0,12 L-2,2 L-12,0 L-2,-2 Z" fill="#ffffff" opacity="0.95" />
+            </g>
+            <circle cx="88" cy="42" r="2.2" fill="#ffffff" opacity="0.85" />
+          </svg>
+        `;
+      }
+
+      function renderGemstones() {
+        if (state.gemLayout === 'default') {
+          gemTL.innerHTML = createGemSVG('red', 'tl');
+          gemBL.innerHTML = createGemSVG('yellow', 'bl');
+          gemTR.innerHTML = createGemSVG('blue', 'tr');
+          gemBR.innerHTML = createGemSVG('green', 'br');
+        } else {
+          gemTL.innerHTML = createGemSVG('red', 'tl');
+          gemBL.innerHTML = createGemSVG('green', 'bl');
+          gemTR.innerHTML = createGemSVG('blue', 'tr');
+          gemBR.innerHTML = createGemSVG('yellow', 'br');
+        }
+        btnGemDefault.classList.toggle('active', state.gemLayout === 'default');
+        btnGemKv.classList.toggle('active', state.gemLayout === 'kv');
+      }
+
+      // =======================================================================
+      // 4. 即時音訊波形（Web Audio API + 模擬平滑備援）
+      // =======================================================================
+      const EQ_COUNT = 22;
+      const eqBars = [];
+      for (let i = 0; i < EQ_COUNT; i++) {
+        const el = document.createElement('span');
+        el.className = 'eq-bar';
+        audioEqContainer.appendChild(el);
+        eqBars.push({
+          el,
+          phase: i * 0.55,
+          speed: 0.0045 + (i % 5) * 0.0012,
+          weight: 1 - Math.abs((i - (EQ_COUNT - 1) / 2) / (EQ_COUNT / 2)) * 0.5
+        });
+      }
+
+      function ensureWebAudioAnalyser() {
+        if (audioSourceConnected) {
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+          return;
+        }
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          audioCtx = new AudioCtx();
+          const source = audioCtx.createMediaElementSource(videoEl);
+          analyserNode = audioCtx.createAnalyser();
+          analyserNode.fftSize = 64;
+          analyserNode.smoothingTimeConstant = 0.78;
+          source.connect(analyserNode);
+          analyserNode.connect(audioCtx.destination);
+          freqDataArray = new Uint8Array(analyserNode.frequencyBinCount);
+          audioSourceConnected = true;
+        } catch (err) {
+          analyserNode = null;
+        }
+      }
+
+      function animateWaveform(now) {
+        const videoPlaying = state.mediaType === 'video' && !videoEl.paused && !videoEl.muted;
+        const useRealAudio = videoPlaying && analyserNode && freqDataArray;
+
+        if (useRealAudio) {
+          analyserNode.getByteFrequencyData(freqDataArray);
+        }
+
+        const isActive = videoPlaying || (state.mediaType !== 'video' && tcRunning);
+
+        for (let i = 0; i < eqBars.length; i++) {
+          const b = eqBars[i];
+          let pct = 16;
+          if (useRealAudio) {
+            const binIdx = Math.min(freqDataArray.length - 1, Math.floor((i / eqBars.length) * (freqDataArray.length * 0.75)) + 1);
+            const val = freqDataArray[binIdx] / 255;
+            pct = 14 + val * 86;
+          } else if (isActive) {
+            const wave =
+              Math.sin(now * b.speed + b.phase) * 0.5 +
+              Math.sin(now * b.speed * 1.9 + b.phase * 1.7) * 0.35 +
+              Math.cos(now * 0.009 + i) * 0.15;
+            pct = 18 + Math.abs(wave) * 78 * b.weight;
+          } else {
+            pct = 14 + Math.sin(now * 0.002 + b.phase) * 6;
+          }
+          b.el.style.height = `${Math.min(100, Math.max(12, pct)).toFixed(1)}%`;
+        }
+        eqRafId = requestAnimationFrame(animateWaveform);
+      }
+
+      // =======================================================================
+      // 5. 工具函式、名牌縮放、時間碼與能量充能引擎
+      // =======================================================================
+      function clamp(val, min, max) {
+        const n = Number(val);
+        return Number.isNaN(n) ? min : Math.min(Math.max(n, min), max);
+      }
+
+      function showToast(msg) {
+        toastText.textContent = msg;
+        toastMsg.classList.add('show');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastMsg.classList.remove('show'), 2600);
+      }
+
+      function applyNameplateScale(pct) {
+        const safe = clamp(pct, 50, 110);
+        state.npScale = safe;
+        inpNpScale.value = safe;
+        scaleReadout.textContent = `${safe}%`;
+        document.documentElement.style.setProperty('--np-scale', (safe / 100).toFixed(2));
+        scaleQuickButtons.forEach((btn) => {
+          btn.classList.toggle('active', Number(btn.dataset.scale) === safe);
+        });
+      }
+
+      function formatTimecode(sec) {
+        const s = Number.isFinite(sec) && sec >= 0 ? sec : 0;
+        const hrs = Math.floor(s / 3600);
+        const mins = Math.floor((s % 3600) / 60);
+        const secs = Math.floor(s % 60);
+        const frames = Math.floor((s - Math.floor(s)) * 30);
+        return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
+      }
+
+      function formatShortDur(sec) {
+        if (!Number.isFinite(sec) || sec < 0) return '00:00';
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+
+      function startTimecode(reset) {
+        if (tcRafId) cancelAnimationFrame(tcRafId);
+        tcRunning = true;
+        if (reset || tcStartTime === null) tcStartTime = performance.now();
+
+        function tick(now) {
+          if (!tcRunning) return;
+          if (state.mediaType === 'video' && !videoEl.paused) {
+            hudTimecode.textContent = formatTimecode(videoEl.currentTime);
+          } else {
+            hudTimecode.textContent = formatTimecode((now - tcStartTime) / 1000);
+          }
+          tcRafId = requestAnimationFrame(tick);
+        }
+        tcRafId = requestAnimationFrame(tick);
+      }
+
+      function renderEnergy(pct, done) {
+        const safe = clamp(pct, 0, 100);
+        const rounded = Math.round(safe);
+        hudEnergyPct.textContent = `${rounded}%`;
+        hudEnergyFill.style.width = `${safe.toFixed(2)}%`;
+        hudEnergyStatus.textContent = rounded >= 100 ? 'TARGET: MAX READY' : (done ? 'TARGET: LOCKED' : 'TARGET: ACTIVE');
+      }
+
+      function triggerEnergy() {
+        if (energyDelayTimer) clearTimeout(energyDelayTimer);
+        if (energyRafId) cancelAnimationFrame(energyRafId);
+
+        const from = clamp(state.startPct, 0, 100);
+        const to = clamp(state.endPct, 0, 100);
+        const delayMs = clamp(state.delaySec, 0, 10) * 1000;
+        const durMs = clamp(state.durationSec, 1, 120) * 1000;
+
+        renderEnergy(from, false);
+
+        energyDelayTimer = setTimeout(() => {
+          const start = performance.now();
+          function step(now) {
+            const t = clamp((now - start) / durMs, 0, 1);
+            const eased = 1 - Math.pow(1 - t, 2.2);
+            const cur = from + (to - from) * eased;
+            if (t < 1) {
+              renderEnergy(cur, false);
+              energyRafId = requestAnimationFrame(step);
+            } else {
+              renderEnergy(to, true);
+              energyRafId = null;
+            }
+          }
+          energyRafId = requestAnimationFrame(step);
+        }, delayMs);
+      }
+
+      function triggerNameplateAnimation() {
+        lowerThirdEl.classList.remove('anim-enter');
+        if (!state.npAnimEnabled) return;
+        void lowerThirdEl.offsetWidth;
+        lowerThirdEl.classList.add('anim-enter');
+      }
+
+      function syncPlayAll() {
+        if (state.mediaType === 'video') {
+          try {
+            ensureWebAudioAnalyser();
+            videoEl.currentTime = 0;
+            const p = videoEl.play();
+            if (p && typeof p.catch === 'function') {
+              p.catch(() => {
+                showToast('瀏覽器限制自動播放，請先點擊畫面一次再按 Space');
+              });
+            }
+            btnPlayPause.textContent = '⏸';
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        startTimecode(true);
+        triggerNameplateAnimation();
+        triggerEnergy();
+      }
+
+      // =======================================================================
+      // 6. 媒體匯入與純淨錄製模式
+      // =======================================================================
+      function clearMedia() {
+        if (state.mediaUrl) {
+          URL.revokeObjectURL(state.mediaUrl);
+          state.mediaUrl = null;
+        }
+        state.mediaType = null;
+        videoEl.pause();
+        videoEl.removeAttribute('src');
+        videoEl.load();
+        videoEl.style.display = 'none';
+        imageEl.removeAttribute('src');
+        imageEl.style.display = 'none';
+        placeholderEl.style.display = 'flex';
+        fileStatusText.textContent = '尚未匯入素材';
+        videoDurBadge.classList.add('hidden');
+        btnClearMedia.classList.add('hidden');
+        btnPlayPause.textContent = '▶';
+      }
+
+      function loadFile(file) {
+        if (!file) return;
+        const isVideo = file.type.startsWith('video/');
+        const isImage = file.type.startsWith('image/');
+        if (!isVideo && !isImage) {
+          showToast('請匯入 MP4 / MOV / WebM 影片或 JPG / PNG 圖片');
+          return;
+        }
+
+        clearMedia();
+        const url = URL.createObjectURL(file);
+        state.mediaUrl = url;
+        placeholderEl.style.display = 'none';
+        fileStatusText.textContent = file.name;
+        btnClearMedia.classList.remove('hidden');
+
+        if (state.bgMode !== 'media') setBgMode('media');
+
+        if (isVideo) {
+          state.mediaType = 'video';
+          videoEl.src = url;
+          videoEl.muted = false;
+          btnMute.textContent = '🔊 原音開啟';
+          videoEl.style.display = 'block';
+          showToast(`已載入影片：${file.name}（按 Space 同步播放）`);
+        } else {
+          state.mediaType = 'image';
+          imageEl.src = url;
+          imageEl.style.display = 'block';
+          showToast(`已載入圖片：${file.name}`);
+        }
+      }
+
+      function setBgMode(mode) {
+        state.bgMode = mode;
+        stageEl.classList.remove('bg-black', 'bg-green', 'bg-blue');
+        if (mode === 'black') stageEl.classList.add('bg-black');
+        if (mode === 'green') stageEl.classList.add('bg-green');
+        if (mode === 'blue') stageEl.classList.add('bg-blue');
+        bgButtons.forEach((b) => b.classList.toggle('active', b.dataset.bg === mode));
+      }
+
+      function setFitMode(mode) {
+        state.fitMode = mode;
+        const isCover = mode === 'cover';
+        videoEl.style.objectFit = isCover ? 'cover' : 'contain';
+        imageEl.style.objectFit = isCover ? 'cover' : 'contain';
+        btnFitCover.classList.toggle('active', isCover);
+        btnFitContain.classList.toggle('active', !isCover);
+      }
+
+      function enterPureMode() {
+        state.isPureMode = true;
+        bodyEl.classList.add('pure-recording');
+        try {
+          if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          }
+        } catch (e) {}
+
+        recordingHint.classList.add('visible');
+        if (hintTimer) clearTimeout(hintTimer);
+        hintTimer = setTimeout(() => {
+          recordingHint.classList.remove('visible');
+        }, 2000);
+      }
+
+      function exitPureMode() {
+        if (!state.isPureMode) return;
+        state.isPureMode = false;
+        bodyEl.classList.remove('pure-recording');
+        recordingHint.classList.remove('visible');
+        try {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          }
+        } catch (e) {}
+      }
+
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && state.isPureMode) {
+          state.isPureMode = false;
+          bodyEl.classList.remove('pure-recording');
+          recordingHint.classList.remove('visible');
+        }
+      });
+
+      // =======================================================================
+      // 7. 事件監聽綁定
+      // =======================================================================
+      inpNpScale.addEventListener('input', () => applyNameplateScale(inpNpScale.value));
+      scaleQuickButtons.forEach((btn) => {
+        btn.addEventListener('click', () => applyNameplateScale(btn.dataset.scale));
+      });
+
+      document.getElementById('btn-header-upload').addEventListener('click', () => fileInputEl.click());
+      document.getElementById('btn-panel-upload').addEventListener('click', () => fileInputEl.click());
+      placeholderEl.addEventListener('click', () => { if (!state.isPureMode) fileInputEl.click(); });
+      fileInputEl.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          loadFile(e.target.files[0]);
+          fileInputEl.value = '';
+        }
+      });
+      btnClearMedia.addEventListener('click', clearMedia);
+
+      stageEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (!state.isPureMode) stageEl.classList.add('drag-over');
+      });
+      stageEl.addEventListener('dragleave', () => stageEl.classList.remove('drag-over'));
+      stageEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        stageEl.classList.remove('drag-over');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          loadFile(e.dataTransfer.files[0]);
+        }
+      });
+
+      videoEl.addEventListener('loadedmetadata', () => {
+        const dur = videoEl.duration || 26;
+        videoDurBadge.textContent = formatShortDur(dur);
+        videoDurBadge.classList.remove('hidden');
+        if (state.autoSyncDur) {
+          const syncedDur = Math.max(1, Number((dur - state.delaySec).toFixed(1)));
+          state.durationSec = syncedDur;
+          inpDuration.value = syncedDur;
+        }
+      });
+
+      videoEl.addEventListener('ended', () => {
+        btnPlayPause.textContent = '▶';
+        tcRunning = false;
+      });
+
+      btnPlayPause.addEventListener('click', () => {
+        if (state.mediaType !== 'video') {
+          syncPlayAll();
+          return;
+        }
+        if (videoEl.paused) {
+          ensureWebAudioAnalyser();
+          videoEl.play().catch(() => {});
+          btnPlayPause.textContent = '⏸';
+          startTimecode(false);
+        } else {
+          videoEl.pause();
+          btnPlayPause.textContent = '▶';
+          tcRunning = false;
+        }
+      });
+
+      btnSyncStart.addEventListener('click', syncPlayAll);
+      document.getElementById('btn-panel-sync').addEventListener('click', syncPlayAll);
+
+      btnMute.addEventListener('click', () => {
+        videoEl.muted = !videoEl.muted;
+        btnMute.textContent = videoEl.muted ? '🔇 已靜音' : '🔊 原音開啟';
+      });
+
+      bgButtons.forEach((btn) => btn.addEventListener('click', () => setBgMode(btn.dataset.bg)));
+      btnFitCover.addEventListener('click', () => setFitMode('cover'));
+      btnFitContain.addEventListener('click', () => setFitMode('contain'));
+
+      btnGemDefault.addEventListener('click', () => { state.gemLayout = 'default'; renderGemstones(); });
+      btnGemKv.addEventListener('click', () => { state.gemLayout = 'kv'; renderGemstones(); });
+
+      // 即時文字編輯
+      inpArtistName.addEventListener('input', () => { hudArtistName.textContent = inpArtistName.value || '藝人姓名'; });
+      inpArtistParen.addEventListener('input', () => {
+        const v = inpArtistParen.value.trim();
+        if (v) {
+          hudArtistParen.textContent = `(${v})`;
+          hudArtistParen.style.display = 'inline';
+        } else {
+          hudArtistParen.textContent = '';
+          hudArtistParen.style.display = 'none';
+        }
+      });
+      inpGuestTitle.addEventListener('input', () => { hudGuestTitle.textContent = inpGuestTitle.value || '特別嘉賓'; });
+      inpArtistSub.addEventListener('input', () => { hudArtistSub.textContent = inpArtistSub.value || 'ARTIST GUEST'; });
+      inpTrMain.addEventListener('input', () => { hudTrMain.textContent = inpTrMain.value || '2026法金盛會'; });
+      inpTrTag.addEventListener('input', () => { hudTrTag.textContent = inpTrTag.value || '// 藝人特訪'; });
+      inpCamCode.addEventListener('input', () => { hudCamCode.textContent = inpCamCode.value || 'CAM-03'; });
+
+      function syncNumericControls() {
+        state.startPct = clamp(inpStartPct.value, 0, 100);
+        state.endPct = clamp(inpEndPct.value, 0, 100);
+        state.delaySec = clamp(inpDelay.value, 0, 10);
+        if (!state.autoSyncDur) {
+          state.durationSec = clamp(inpDuration.value, 1, 120);
+        } else if (state.mediaType === 'video' && videoEl.duration) {
+          state.durationSec = Math.max(1, Number((videoEl.duration - state.delaySec).toFixed(1)));
+          inpDuration.value = state.durationSec;
+        }
+        renderEnergy(state.startPct, false);
+      }
+
+      inpStartPct.addEventListener('change', syncNumericControls);
+      inpEndPct.addEventListener('change', syncNumericControls);
+      inpDelay.addEventListener('change', syncNumericControls);
+      inpDuration.addEventListener('change', syncNumericControls);
+
+      chkSyncDur.addEventListener('change', () => {
+        state.autoSyncDur = chkSyncDur.checked;
+        inpDuration.disabled = state.autoSyncDur;
+        syncNumericControls();
+      });
+
+      chkNpAnim.addEventListener('change', () => {
+        state.npAnimEnabled = chkNpAnim.checked;
+      });
+
+      chkCinematic.addEventListener('change', () => {
+        state.cinematicEnabled = chkCinematic.checked;
+        stageEl.classList.toggle('cinematic-on', state.cinematicEnabled);
+      });
+
+      document.getElementById('btn-header-pure').addEventListener('click', enterPureMode);
+      document.getElementById('btn-panel-pure').addEventListener('click', enterPureMode);
+
+      window.addEventListener('keydown', (e) => {
+        const tag = document.activeElement && document.activeElement.tagName;
+        const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+        if (e.key === 'Escape' && state.isPureMode) {
+          e.preventDefault();
+          exitPureMode();
+          return;
+        }
+        if (isTyping) return;
+
+        if (e.code === 'Space') {
+          e.preventDefault();
+          syncPlayAll();
+        }
+      });
+
+      // =======================================================================
+      // 8. 初始化啟動
+      // =======================================================================
+      inpDuration.disabled = state.autoSyncDur;
+      applyNameplateScale(75);
+      renderGemstones();
+      renderEnergy(state.startPct, false);
+      eqRafId = requestAnimationFrame(animateWaveform);
+      setTimeout(() => {
+        startTimecode(true);
+        triggerNameplateAnimation();
+        triggerEnergy();
+      }, 300);
+    })();
+  </script>
+</body>
+</html>
